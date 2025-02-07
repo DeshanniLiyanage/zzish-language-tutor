@@ -1,15 +1,18 @@
-<script>
-	let userInput = '';
-	/**
-	 * @type {any[]}
-	 */
-	let conversation = [];
-	let isLoading = false;
+<script lang="ts">
+	let userInput: string = '';
+	let conversation: { role: string; content: string }[] = [];
+	let isLoading: boolean = false;
+	let errorMessage: string | null = null;
 
-	async function sendMessage() {
-		if (!userInput.trim() || isLoading) return;
+	async function sendMessage(): Promise<void> {
+		if (!userInput.trim()) {
+			errorMessage = 'Please enter a message.';
+			return;
+		}
 
 		isLoading = true;
+		errorMessage = null;
+
 		try {
 			const response = await fetch('/api/tutor', {
 				method: 'POST',
@@ -17,29 +20,20 @@
 				body: JSON.stringify({ message: userInput })
 			});
 
+			if (!response.ok) {
+				throw new Error('Failed to fetch response from the tutor.');
+			}
+
 			const data = await response.json();
 			conversation.push({ role: 'user', content: userInput });
 			conversation.push({ role: 'tutor', content: data.reply });
 			userInput = '';
 		} catch (error) {
-			console.error('Error sending message:', error);
-			conversation.push({
-				role: 'tutor',
-				content: 'Sorry, something went wrong. Please try again.'
-			});
+			errorMessage = 'An error occurred. Please try again.';
+			console.error(error);
 		} finally {
 			isLoading = false;
 		}
-	}
-
-	// Scroll to the bottom of the chat when a new message is added
-	$: if (conversation.length) {
-		setTimeout(() => {
-			const chatWindow = document.querySelector('.chat');
-			if (chatWindow) {
-				chatWindow.scrollTop = chatWindow.scrollHeight;
-			}
-		}, 10);
 	}
 </script>
 
@@ -53,17 +47,18 @@
 			</div>
 		{/each}
 		{#if isLoading}
-			<div class="message tutor">
-				<strong>Tutor:</strong> <span class="loading">Thinking...</span>
-			</div>
+			<div class="message loading">Tutor is typing...</div>
 		{/if}
 	</div>
+	{#if errorMessage}
+		<div class="error">{errorMessage}</div>
+	{/if}
 	<div class="input-container">
 		<input
 			bind:value={userInput}
 			placeholder="Ask me anything in French..."
-			on:keydown={(e) => e.key === 'Enter' && sendMessage()}
 			disabled={isLoading}
+			on:keydown={(e) => e.key === 'Enter' && sendMessage()}
 		/>
 		<button on:click={sendMessage} disabled={isLoading}>
 			{isLoading ? 'Sending...' : 'Send'}
@@ -85,41 +80,47 @@
 	h1 {
 		text-align: center;
 		color: #0070f3;
-		margin-bottom: 20px;
 	}
 
 	.chat {
-		height: 400px;
-		overflow-y: auto;
 		margin-bottom: 20px;
+		max-height: 400px;
+		overflow-y: auto;
 		padding: 10px;
-		background-color: white;
-		border-radius: 10px;
-		box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+		background-color: #fff;
+		border-radius: 8px;
+		box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
 	}
 
 	.message {
 		margin-bottom: 10px;
 		padding: 10px;
-		border-radius: 10px;
+		border-radius: 5px;
 		line-height: 1.5;
 	}
 
 	.user {
 		background-color: #e3f2fd;
+		align-self: flex-end;
 		margin-left: 20%;
-		margin-right: 0;
 	}
 
 	.tutor {
 		background-color: #f5f5f5;
+		align-self: flex-start;
 		margin-right: 20%;
-		margin-left: 0;
 	}
 
 	.loading {
-		color: #888;
+		color: #666;
 		font-style: italic;
+		text-align: center;
+	}
+
+	.error {
+		color: #ff4d4d;
+		text-align: center;
+		margin-bottom: 10px;
 	}
 
 	.input-container {
@@ -143,11 +144,6 @@
 		border-radius: 5px;
 		cursor: pointer;
 		font-size: 16px;
-		transition: background-color 0.3s;
-	}
-
-	button:hover {
-		background-color: #005bb5;
 	}
 
 	button:disabled {

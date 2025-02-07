@@ -9,26 +9,25 @@ interface LLMResponse {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
+	const { message }: Message = await request.json();
+
+	if (!message?.trim()) {
+		return json({ error: 'Message is required.' }, { status: 400 });
+	}
+
 	try {
-		const { message }: Message = await request.json();
-
-		if (!message) {
-			throw new Error('Message is required');
-		}
-
 		const reply = await callLLM(message);
-
 		return json({ reply } as LLMResponse);
 	} catch (error) {
-		console.error('Error in POST handler:', error);
-		return json({ reply: 'An error occurred while processing your request.' }, { status: 500 });
+		console.error('Error calling LLM:', error);
+		return json({ error: 'Failed to get a response from the tutor.' }, { status: 500 });
 	}
 };
 
 async function callLLM(message: string, retries = 3): Promise<string> {
 	const prompt = `You are an expert French language teacher and I am a student. Teach me French. The student says: "${message}". Respond in a helpful and engaging way.`;
 	const apiKey = import.meta.env.VITE_HUGGING_FACE_API_KEY; // Use environment variable
-	const model = 'EleutherAI/gpt-neo-2.7B'; // Try switching to 'gpt2' if this fails EleutherAI/gpt-neo-2.7B
+	const model = 'EleutherAI/gpt-neo-2.7B'; // Try switching to 'gpt2' if this fails
 	const url = `https://api-inference.huggingface.co/models/${model}`;
 
 	const response = await fetch(url, {
