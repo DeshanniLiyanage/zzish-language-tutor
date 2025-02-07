@@ -1,7 +1,10 @@
+import { callLLM } from '$lib/api/tutor';
 import { json, type RequestHandler } from '@sveltejs/kit';
 
 interface Message {
 	message: string;
+	language: string;
+	topic: string;
 }
 
 interface LLMResponse {
@@ -9,57 +12,18 @@ interface LLMResponse {
 }
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { message }: Message = await request.json();
+	const { message, language, topic }: Message = await request.json();
 
 	if (!message?.trim()) {
 		return json({ error: 'Message is required.' }, { status: 400 });
 	}
 
 	try {
-		const reply = await callLLM(message);
+		console.log(message + ' language : ' + language);
+		const reply = await callLLM(message, language, topic);
 		return json({ reply } as LLMResponse);
 	} catch (error) {
 		console.error('Error calling LLM:', error);
 		return json({ error: 'Failed to get a response from the tutor.' }, { status: 500 });
 	}
 };
-
-async function callLLM(message: string, retries = 3): Promise<string> {
-	const prompt = `You are an expert French language teacher and I am a student. Teach me French. The student says: "${message}". Respond in a helpful and engaging way.`;
-	const apiKey = import.meta.env.VITE_HUGGING_FACE_API_KEY; // Use environment variable
-	const model = 'EleutherAI/gpt-neo-2.7B'; // Try switching to 'gpt2' if this fails
-	const url = `https://api-inference.huggingface.co/models/${model}`;
-
-	const response = await fetch(url, {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json',
-			Authorization: `Bearer ${apiKey}`
-		},
-		body: JSON.stringify({
-			inputs: prompt // Hugging Face uses `inputs` instead of `messages`
-		})
-	});
-
-	const data = await response.json();
-
-	// Log the full response for debugging
-	console.log('API Response:', JSON.stringify(data, null, 2));
-
-	if (!response.ok) {
-		if (response.status === 503 && retries > 0) {
-			// Model is loading, retry after a delay
-			console.log('Model is loading, retrying...');
-			await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
-			return callLLM(message, retries - 1); // Retry
-		}
-		throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(data)}`);
-	}
-
-	// Hugging Face returns an array of responses
-	if (Array.isArray(data) && data.length > 0) {
-		return data[0].generated_text; // Correctly access the generated text
-	} else {
-		throw new Error('Invalid response format from Hugging Face API');
-	}
-}

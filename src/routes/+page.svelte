@@ -1,8 +1,17 @@
 <script lang="ts">
+	import ChatMessage from '$components/ChatMessage.svelte';
+	import LanguageSelector from '$components/LanguageSelector.svelte';
+	import TopicSelector from '$components/TopicSelector.svelte';
+	import { LANGUAGES } from '$lib/constants/languages';
+	import { TOPICS } from '$lib/constants/topics';
+
 	let userInput: string = '';
 	let conversation: { role: string; content: string }[] = [];
 	let isLoading: boolean = false;
 	let errorMessage: string | null = null;
+	let selectedLanguageCode: string = LANGUAGES[0].code; // Store the selected language code
+	let selectedLanguageName: string = LANGUAGES[0].name; // Store the selected language name
+	let selectedTopic: string = TOPICS[0].id;
 
 	async function sendMessage(): Promise<void> {
 		if (!userInput.trim()) {
@@ -17,7 +26,11 @@
 			const response = await fetch('/api/tutor', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ message: userInput })
+				body: JSON.stringify({
+					message: userInput,
+					language: selectedLanguageName,
+					topic: selectedTopic
+				})
 			});
 
 			if (!response.ok) {
@@ -25,8 +38,16 @@
 			}
 
 			const data = await response.json();
-			conversation.push({ role: 'user', content: userInput });
-			conversation.push({ role: 'tutor', content: data.reply });
+			console.log('API Response:', data); // Debugging: Log the response
+
+			// Update conversation immutably
+			conversation = [
+				...conversation,
+				{ role: 'user', content: userInput },
+				{ role: 'tutor', content: data.reply }
+			];
+			console.log('Updated Conversation:', conversation); // Debugging: Log the conversation
+
 			userInput = '';
 		} catch (error) {
 			errorMessage = 'An error occurred. Please try again.';
@@ -38,13 +59,19 @@
 </script>
 
 <main>
-	<h1>AI-Powered French Tutor</h1>
+	<h1>AI-Powered Language Tutor</h1>
+	<div class="controls">
+		<LanguageSelector
+			bind:selectedLanguage={selectedLanguageCode}
+			onLanguageChange={(name) => (selectedLanguageName = name)}
+		/>
+		<TopicSelector bind:selectedTopic onTopicChange={(id) => (selectedTopic = id)} />
+	</div>
 	<div class="chat">
 		{#each conversation as msg}
-			<div class="message {msg.role}">
-				<strong>{msg.role === 'user' ? 'You' : 'Tutor'}:</strong>
-				{msg.content}
-			</div>
+			<!-- <ChatMessage role={msg.role} content={msg.content} /> -->
+
+			<ChatMessage role={msg.role} content={msg.content} />
 		{/each}
 		{#if isLoading}
 			<div class="message loading">Tutor is typing...</div>
@@ -56,7 +83,7 @@
 	<div class="input-container">
 		<input
 			bind:value={userInput}
-			placeholder="Ask me anything in French..."
+			placeholder="Ask me anything..."
 			disabled={isLoading}
 			on:keydown={(e) => e.key === 'Enter' && sendMessage()}
 		/>
