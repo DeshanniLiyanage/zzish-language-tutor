@@ -150,4 +150,26 @@
 		background-color: #ccc;
 		cursor: not-allowed;
 	}
+
+	@media (max-width: 600px) {
+		main {
+			padding: 10px;
+		}
+
+		h1 {
+			font-size: 24px;
+		}
+
+		.chat {
+			max-height: 300px;
+		}
+
+		input {
+			font-size: 14px;
+		}
+
+		button {
+			font-size: 14px;
+		}
+	}
 </style>
